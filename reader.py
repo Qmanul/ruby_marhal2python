@@ -9,7 +9,7 @@ from exception import VersionError, TypeNotSupportedError
 from constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
 
 class Reader:
-    __slots__ = '_stream', '_symbols', '_objects', '_byte_read_map' 
+    __slots__ = '_stream', '_symbols', '_objects'
     def __init__(self, stream: BinaryIO) -> None:
         self._stream = stream
         self._check_marshal_version()
@@ -42,16 +42,17 @@ class Reader:
         if 128 <= ln <= 250:
             return ln - 251  # ???? кто это нахуй придумал???? почему 251???? а блять потому что 256 - 5 ну ахуеть
 
-        res = 0
+        # res = 0
         const = 0 if ln <= 4 else 256  # понятия не имею как назвать переменную пусть буит const
-        for exp in range(abs(const - ln)):
-            res += (ord(self._read_bytes()) - const) * 256 ** exp
-        return res
+        # for exp in range(abs(const - ln)):
+        #     res += (ord(self._read_bytes()) - const) * 256 ** exp
+        # return res
+        return sum(((ord(self._read_bytes()) - const) * 256 ** exp for exp in range(abs(const - ln))))
 
     def _read_object_ref(self) -> RubyTypes:
         return self._objects[self._read_fixnum() - 1]  # почему индекс объектов начинается с 1, тогда как символов с 0 ???
 
-    def _read_regexp(self) -> re.Pattern:
+    def _read_regexp(self) -> re.Pattern
         pattern = self._read_bytes(self._read_fixnum()).decode('US-ASCII')
         flags = ord(self._read_bytes())
         options = sum(re_flag for flag, re_flag in {1: re.I, 2: re.X, 4: re.S}.items() if flags & flag)  # спасибо tabnine
@@ -181,10 +182,14 @@ class Reader:
         return {self._read_name_symbol(): self.parse() for _ in range(self._read_fixnum())}
     
     # метод штобы mypy не ругался 
-    # ведь у объекта типа RubyClass нету проперти name, у объекта типа RubyObject нету проперти name, у объе...
+    # ведь у объекта типа RubyClass нету аттрибута name, у объекта типа RubyObject нету аттрибута name, у объе...
     def _read_name_symbol(self) -> str:
         return self._read_symbol().name if Types(self._read_bytes()) is Types.SYMBOL else self._read_symbol_ref().name
-        
+    
+    # выглядит пиздец колхозно но вроде самый быстрый способ
+    # вообще можно было бы сделать модели всех объектов руби у них прописать методы
+    # dump и load и потом просто вызывать их у type_byte 
+    # но была бы бабка дедом да яйца по резьбе не подошли 
     def parse(self) -> RubyTypes:
         type_byte = Types(self._read_bytes())
         if type_byte is Types.TRUE:
