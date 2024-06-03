@@ -28,9 +28,8 @@ class RubySymbol:
     def __len__(self) -> int:
         return len(self.name)
 
-    @property
-    def length(self) -> int:
-        return self.__len__()
+    def __bool__(self) -> bool:
+        return bool(self.name)
 
     def startswith(self, *queries: str) -> bool:
         return self.name.startswith(queries)
@@ -39,7 +38,7 @@ class RubySymbol:
         return self.name.endswith(queries)
 
     def is_empty(self) -> bool:
-        return not bool(self.name)
+        return not bool(self)
     
     
 RubyTypes = RubyObject | str | int | float | list | dict | RubySymbol | re.Pattern | RubyClass | None | bool
