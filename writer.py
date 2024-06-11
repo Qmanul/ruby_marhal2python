@@ -62,16 +62,59 @@ class Writer:
         self._write_bytes(index.to_bytes())
         return None
 
+    def _write_object_ref(self, index) -> None:
+        self._write_fixnum(index + 1)
+
     def _write_float(self, num: float) -> None:
+        if num in self._objects:  # для этого бы написать отдельный метод/декоратор/функцию
+            self._write_object_ref(self._objects.index(num))
+            return None
         self._objects.append(num)
+
         num = str(num)
         self._write_fixnum(len(num))
         self._write_bytes(num)
         return None 
 
     def _write_bignum(self, num: int):
+        if num in self._objects:
+            self._write_object_ref(self._objects.index(num))
+            return None
+        self._objects.append(num)
+
         self._write_bytes(Types.BIGNUM.value)
-        
+        if num > 0:
+            self._write_bytes(b'+')
+        else:
+            self._write_bytes(b'-')
+
+        length = ((num).bit_length() + 7) // 8
+        self._write_fixnum(length // 2)
+        for exp in range(length):
+            self._write_bytes(((num >> (exp * 8)) & 0xFF).to_bytes())
+        return None
+
+    def _write_hash(self, hash: dict) -> None:
+        if hash in self._objects:
+            self._write_object_ref(self._objects.index(hash))
+            return None
+        self._objects.append(hash)
+
+        self._write_bytes(Types.HASH.value)
+        self._write_fixnum(len(hash).to_bytes())
+        for key, value in hash.items():
+            self.write(key)
+            self.write(value)
+        return None
+
+    def _write_string(self, string: str) -> None:
+        if string in self._objects:
+            self._write_object_ref(self._objects.index(string))
+            return None
+        self._objects.append(string)
+
+        self._write_fixnum(len(string))
+        self._write_bytes(string.encode())
 
     def _write_user_defined(self) -> None:
         
@@ -81,10 +124,11 @@ class Writer:
         match self.obj:
             case float(num): self._write_float(num)
             case int(num): 
-                if num > 100000:
+                if num >= 2 ** 30:
                     self._write_bignum(num)
                 else:
                     self._write_fixnum(num)
+            case str(s): self._write_string(s)
 
 
 def dump(obj) -> BytesIO:
