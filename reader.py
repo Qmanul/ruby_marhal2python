@@ -52,7 +52,7 @@ class Reader:
     def _read_object_ref(self) -> RubyTypes:
         return self._objects[self._read_fixnum() - 1]  # почему индекс объектов начинается с 1, тогда как символов с 0 ???
 
-    def _read_regexp(self) -> re.Pattern
+    def _read_regexp(self) -> re.Pattern:
         pattern = self._read_bytes(self._read_fixnum()).decode('US-ASCII')
         flags = ord(self._read_bytes())
         options = sum(re_flag for flag, re_flag in {1: re.I, 2: re.X, 4: re.S}.items() if flags & flag)  # спасибо tabnine

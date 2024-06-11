@@ -4,7 +4,7 @@ from enum import Enum
 MARSHAL_MAJOR_VERSION: int = 4
 MARSHAL_MINOR_VERSION: int = 8
 
-# просто энамчик типов байтов
+# просто энамчик тип байтов
 class Types(Enum):
     TRUE = b'T'
     FALSE = b'F'
