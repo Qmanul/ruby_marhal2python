@@ -58,7 +58,7 @@ class RubySymbol(RubyString):
     def __new__(cls, **kwargs) -> RubySymbol:
         if (symb := cls.register.get(kwargs['name'])) is not None:
             return symb
-        return super().__new__(cls)
+        return super(RubySymbol, cls).__new__(cls)
 
     def __post_init__(self) -> None:
         self.__class__.register.update({self.name: self})

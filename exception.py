@@ -7,3 +7,4 @@ class VersionError(Exception):
 class TypeNotSupportedError(Exception):
     def __init__(self, passed_type: str | type):
         super().__init__(f"{passed_type} type is not supported in current version")
+        
