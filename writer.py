@@ -53,7 +53,7 @@ class Writer:
 
         self._write_bytes(Types.SYMBOL.value)
         self._write_fixnum(len(symbol))
-        self.write(symbol.encode())
+        self._write_bytes(symbol.encode())
         self._symbols.append(symbol)
         return None
         
@@ -71,9 +71,9 @@ class Writer:
             return None
         self._objects.append(num)
 
-        num = str(num)
-        self._write_fixnum(len(num))
-        self._write_bytes(num)
+        num_string = str(num)
+        self._write_fixnum(len(num_string))
+        self._write_bytes(num_string.encode())
         return None 
 
     def _write_bignum(self, num: int):
@@ -101,10 +101,10 @@ class Writer:
         self._objects.append(hash)
 
         self._write_bytes(Types.HASH.value)
-        self._write_fixnum(len(hash).to_bytes())
+        self._write_fixnum(len(hash))
         for key, value in hash.items():
-            self.write(key)
-            self.write(value)
+            self._write_bytes(key)
+            self._write_bytes(value)
         return None
 
     def _write_string(self, string: str) -> None:
@@ -120,7 +120,7 @@ class Writer:
         
         ...
     
-    def write(self) -> BytesIO:
+    def write(self) -> BytesIO:  # type: ignore
         match self.obj:
             case float(num): self._write_float(num)
             case int(num): 

@@ -1,31 +1,22 @@
 from __future__ import annotations
 
 import io
-from functools import wraps
 import re
-from typing import BinaryIO, Callable, NoReturn
-from collections import defaultdict
+import collections
+from typing import BinaryIO, NoReturn
 
 from models import RubyClass, RubySymbol, RubyObject, RubyTypes
 from exception import VersionError, TypeNotSupportedError
 from constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
+from utils import register_object
 
-
-def register_object[F: Callable[[], RubyTypes]](func: F) -> F:
-    @wraps(func)
-    def wrapper(self: _Reader) -> None:
-        self.objects.append(None)
-        index = len(self.objects) - 1
-        res = func(self)
-        self.objects[index] = res
-        return res
-    return wrapper
+__all__ = ['load']
 
 
 class _Reader:
     __slots__ = 'stream', 'symbols', 'objects'
     def __init__(self, stream: BinaryIO) -> None:
-        self.stream = io.BufferedReader(stream)
+        self.stream = stream
         self.check_marshal_version()
         self.objects: list[RubyTypes] = list()
         self.symbols: list[RubySymbol] = list()  # почему у символов отдельная таблица ??? 
@@ -36,6 +27,7 @@ class _Reader:
         if major_version != MARSHAL_MAJOR_VERSION or minor_version > MARSHAL_MINOR_VERSION:
             raise VersionError(f'{MARSHAL_MAJOR_VERSION}.{MARSHAL_MINOR_VERSION}',
                                f'{major_version}.{minor_version}')
+        return None
 
     # метод шобы не писать self._stream.read(ln)
     def read_bytes(self, ln: int = 1) -> bytes:
@@ -76,6 +68,7 @@ class _Reader:
     # ну и залупа кто это придумал
     @register_object
     def read_ivar(self) -> RubyTypes:
+        
         type_byte = Types(self.read_bytes())
         if type_byte is Types.STRING:
             s = self.read_bytes(self.read_fixnum())
@@ -106,7 +99,7 @@ class _Reader:
             res = s.decode('UTF-8')
             
         if type_byte is Types.REGEXP:
-            res = re.compile(res, options)
+            res = re.compile(res, options)  #type: ignore
         return res
 
     def read_extended(self):
@@ -156,7 +149,7 @@ class _Reader:
         # я так счастлив я так рад у меня есть дефолтдикт, хочу сказать благодарю и говорю "соси"
         # соси благодраю тебя, соси спасибо, что ты есть
         # ну а не серьёзной ноте, я хз если это работает с объектами
-        return defaultdict(lambda: self.parse(), h)
+        return collections.defaultdict(lambda: self.parse(), h)
 
     @register_object
     def read_object(self) -> RubyObject:

@@ -67,11 +67,5 @@ class RubySymbol(RubyString):
     def all_symbols(cls) -> ItemsView[str, RubySymbol]:
         return cls.register.items()
 
-
-RubyFloat = float
-RubyFixnum = int
-nil = None
-true = True
-false = False
     
 RubyTypes = RubyObject | str | int | float | list | dict | RubySymbol | re.Pattern | RubyClass | None | bool
