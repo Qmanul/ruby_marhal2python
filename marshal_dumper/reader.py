@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import io
 import re
 import collections
 from typing import BinaryIO, NoReturn
 
-from models import RubyClass, RubySymbol, RubyObject, RubyTypes
-from exception import VersionError, TypeNotSupportedError
-from constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
-from utils import register_object
+from .models import RubyClass, RubySymbol, RubyObject, RubyTypes
+from .exception import VersionError, TypeNotSupportedError
+from .constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
+from .utils import register_object
 
-__all__ = ['load']
+__all__ = ['load', 'load_from_file']
 
 
 class _Reader:
@@ -20,7 +19,7 @@ class _Reader:
         self.check_marshal_version()
         self.objects: list[RubyTypes] = list()
         self.symbols: list[RubySymbol] = list()  # почему у символов отдельная таблица ??? 
-      
+        
     def check_marshal_version(self) -> None | NoReturn:  # я тут выёбывыаюсь знанием типов (посмотрел 1 видео)
         major_version = ord(self.read_bytes())
         minor_version = ord(self.read_bytes())
@@ -28,7 +27,7 @@ class _Reader:
             raise VersionError(f'{MARSHAL_MAJOR_VERSION}.{MARSHAL_MINOR_VERSION}',
                                f'{major_version}.{minor_version}')
         return None
-
+    
     # метод шобы не писать self._stream.read(ln)
     def read_bytes(self, ln: int = 1) -> bytes:
         return self.stream.read(ln)
@@ -240,3 +239,9 @@ class _Reader:
 
 def load(stream: BinaryIO) -> RubyTypes:
     return _Reader(stream).parse()
+
+
+def load_from_file(filename: str) -> RubyTypes:
+    with open(filename, 'rb') as f:
+        return load(f)
+    

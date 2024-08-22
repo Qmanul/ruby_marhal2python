@@ -1,18 +1,20 @@
 import functools
-from typing import Callable, Protocol
+from typing import Callable, Protocol, TypeVar
 
-from models import RubyTypes
+from .models import RubyTypes
 
 __all__ = ['register_object']
+
+F = TypeVar('F')
 
 
 class HasObjectRegistry(Protocol):
     objects: list
 
 
-def register_object(func: Callable[..., RubyTypes]) -> Callable[..., RubyTypes]:
+def register_object(func: Callable[..., F]) -> Callable[..., F]:
     @functools.wraps(func)
-    def wrapper(self: HasObjectRegistry) -> RubyTypes:
+    def wrapper(self: HasObjectRegistry) -> F:
         self.objects.append(None)
         index = len(self.objects) - 1
         res = func(self)
