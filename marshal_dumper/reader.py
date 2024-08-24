@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import re
 import collections
-from typing import BinaryIO, NoReturn
+from typing import BinaryIO, NoReturn, Callable
 
 from .models import RubyClass, RubySymbol, RubyObject, RubyTypes
 from .exception import VersionError, TypeNotSupportedError
 from .constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
 from .utils import register_object
 
-__all__ = ['load', 'load_from_file']
+__all__ = 'load', 'load_from_file', 'register_user_defined'
 
 
 class _Reader:
     __slots__ = 'stream', 'symbols', 'objects'
+    user_classes: dict[str, Callable[..., object]] = dict()
+    user_defined_handlers: dict[str, Callable[[bytes], object]] = dict()
+    
     def __init__(self, stream: BinaryIO) -> None:
         self.stream = stream
         self.check_marshal_version()
@@ -152,7 +155,11 @@ class _Reader:
 
     @register_object
     def read_object(self) -> RubyObject:
-        return RubyObject(cls_name=self.read_symbol_name(), attributes=self.read_attributes())
+        name = self.read_symbol_name()
+        attributes = self.read_attributes()
+        if (class_ := self.user_classes.get(name)) is not None:
+            return class_(**{k.removeprefix('@'): v for k, v in attributes.items()})
+        return RubyObject(cls_name=name, attributes=attributes)
 
     @register_object
     def read_struct(self) -> RubyObject:
@@ -162,7 +169,12 @@ class _Reader:
     # upd: ладно хуй с ним
     @register_object
     def read_user_defined(self) -> RubyObject:
-        return RubyObject(cls_name=self.read_symbol_name(), attributes={"data":self.read_bytes(self.read_fixnum())})
+        name = self.read_symbol_name()
+        data = self.read_bytes(self.read_fixnum())
+        
+        if (handler := self.user_defined_handlers.get(name)) is not None:
+            return handler(data)
+        return RubyObject(cls_name=name, attributes={"data": data})
     
     @register_object
     def read_user_class(self) -> RubyObject:
@@ -235,6 +247,14 @@ class _Reader:
             return self.read_user_defined()
         if type_byte is Types.USERMARSHAL:
             return self.read_user_class()
+    
+    @classmethod 
+    def add_user_defined_handler(cls, name: str, handler: Callable[[bytes], object]) -> None:
+        cls.user_defined_handlers.update({name: handler})
+        
+    @classmethod
+    def add_user_class_handler(cls, name: str, class_: Callable[..., object]) -> None:
+        cls.user_classes.update({name: class_})
             
 
 def load(stream: BinaryIO) -> RubyTypes:
@@ -245,3 +265,9 @@ def load_from_file(filename: str) -> RubyTypes:
     with open(filename, 'rb') as f:
         return load(f)
     
+    
+def register_user_defined(cls_name: str, handler: Callable[[bytes], object]) -> None:
+    _Reader.add_user_defined_handler(cls_name, handler)
+    
+def register_user_class(cls_name: str, class_: Callable[..., object]) -> None:
+    _Reader.add_user_class_handler(cls_name, class_)

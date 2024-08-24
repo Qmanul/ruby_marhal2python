@@ -1,7 +1,6 @@
 import functools
 from typing import Callable, Protocol, TypeVar
 
-from .models import RubyTypes
 
 __all__ = ['register_object']
 

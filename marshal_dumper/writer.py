@@ -1,7 +1,7 @@
 from io import BytesIO
 import math
 
-from constants import MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION, Types
+from .constants import MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION, Types
 
 class Writer:
     def __init__(self, obj) -> None:

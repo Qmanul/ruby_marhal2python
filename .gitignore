@@ -1,4 +1,3 @@
-*.rxdata
 .venv/
 .vscode/
 .idea/
