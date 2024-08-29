@@ -7,21 +7,21 @@ from typing import BinaryIO, NoReturn, Callable
 from .models import RubyClass, RubySymbol, RubyObject, RubyTypes
 from .exception import VersionError, TypeNotSupportedError
 from .constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
-from .utils import register_object
+from .utils import Registry, register_object
 
-__all__ = 'load', 'load_from_file', 'register_user_defined'
+__all__ = 'load', 'load_from_file', 'register_user_defined_loader', 'register_object_loader',
 
 
 class _Reader:
     __slots__ = 'stream', 'symbols', 'objects'
-    user_classes: dict[str, Callable[..., object]] = dict()
-    user_defined_handlers: dict[str, Callable[[bytes], object]] = dict()
+    object_custom_loaders: dict[str, Callable[[dict[str, object]], object]] = dict()
+    user_defined_loaders: dict[str, Callable[[bytes], object]] = dict()
     
     def __init__(self, stream: BinaryIO) -> None:
-        self.stream = stream
+        self.stream = stream  # как сделать копию потока?
         self.check_marshal_version()
-        self.objects: list[RubyTypes] = list()
-        self.symbols: list[RubySymbol] = list()  # почему у символов отдельная таблица ??? 
+        self.objects: Registry[RubyTypes] = Registry()
+        self.symbols: Registry[RubySymbol] = Registry()  # почему у символов отдельная таблица ??? 
         
     def check_marshal_version(self) -> None | NoReturn:  # я тут выёбывыаюсь знанием типов (посмотрел 1 видео)
         major_version = ord(self.read_bytes())
@@ -69,7 +69,7 @@ class _Reader:
 
     # ну и залупа кто это придумал
     @register_object
-    def read_ivar(self) -> RubyTypes:
+    def read_ivar(self) -> RubyTypes | NoReturn:
         
         type_byte = Types(self.read_bytes())
         if type_byte is Types.STRING:
@@ -129,7 +129,7 @@ class _Reader:
         return RubyClass(name=self.read_bytes(self.read_fixnum()).decode())
 
     # вроде можно дампить, но там как то хитровыебанно поэтому пока просто кидаем ошибку мб когда-нибудь сделаю
-    def read_data(self):
+    def read_data(self) -> NoReturn:
         raise TypeNotSupportedError('Data')
 
     @register_object
@@ -148,31 +148,28 @@ class _Reader:
     def read_hash_w_default_value(self) -> dict:
         # Сначала читаем хеш потому что дефолт валью в конце. Очень удобно спасибо руби
         h = self._read_hash()
-        # я так счастлив я так рад у меня есть дефолтдикт, хочу сказать благодарю и говорю "соси"
-        # соси благодраю тебя, соси спасибо, что ты есть
-        # ну а не серьёзной ноте, я хз если это работает с объектами
         return collections.defaultdict(lambda: self.parse(), h)
 
     @register_object
     def read_object(self) -> RubyObject:
         name = self.read_symbol_name()
         attributes = self.read_attributes()
-        if (class_ := self.user_classes.get(name)) is not None:
-            return class_(**{k.removeprefix('@'): v for k, v in attributes.items()})
+        if (handler := self.object_custom_loaders.get(name)) is not None:
+            return handler(attributes)
         return RubyObject(cls_name=name, attributes=attributes)
 
     @register_object
     def read_struct(self) -> RubyObject:
         return RubyObject(cls_name=self.read_symbol_name()[8:], attributes=self.read_attributes())  # [8:] отсекает 'Struct::'
 
-    # 3 метода ниже это ёбанное богохульство я не буду их имплементить
+    # 2 метода ниже это ёбанное богохульство я не буду их имплементить
     # upd: ладно хуй с ним
     @register_object
     def read_user_defined(self) -> RubyObject:
         name = self.read_symbol_name()
         data = self.read_bytes(self.read_fixnum())
         
-        if (handler := self.user_defined_handlers.get(name)) is not None:
+        if (handler := self.user_defined_loaders.get(name)) is not None:
             return handler(data)
         return RubyObject(cls_name=name, attributes={"data": data})
     
@@ -249,12 +246,12 @@ class _Reader:
             return self.read_user_class()
     
     @classmethod 
-    def add_user_defined_handler(cls, name: str, handler: Callable[[bytes], object]) -> None:
-        cls.user_defined_handlers.update({name: handler})
+    def add_user_defined_loader(cls, cls_name: str, loader: Callable[[bytes], object]) -> None:
+        cls.user_defined_loaders.update({cls_name: loader})
         
     @classmethod
-    def add_user_class_handler(cls, name: str, class_: Callable[..., object]) -> None:
-        cls.user_classes.update({name: class_})
+    def add_object_loader(cls, cls_name: str, loader: Callable[[dict[str, object]], object]) -> None:
+        cls.object_custom_loaders.update({cls_name: loader})
             
 
 def load(stream: BinaryIO) -> RubyTypes:
@@ -266,8 +263,9 @@ def load_from_file(filename: str) -> RubyTypes:
         return load(f)
     
     
-def register_user_defined(cls_name: str, handler: Callable[[bytes], object]) -> None:
-    _Reader.add_user_defined_handler(cls_name, handler)
+def register_user_defined_loader(cls_name: str, loader: Callable[[bytes], object]) -> None:
+    _Reader.add_user_defined_loader(cls_name, loader)
     
-def register_user_class(cls_name: str, class_: Callable[..., object]) -> None:
-    _Reader.add_user_class_handler(cls_name, class_)
+    
+def register_object_loader(cls_name: str, loader: Callable[[dict[str, object]], object]) -> None:
+    _Reader.add_object_loader(cls_name, loader)

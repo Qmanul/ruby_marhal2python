@@ -1,26 +1,15 @@
-import struct
+from marshal_dumper import reader
+from marshal_dumper.reader import load
 
-from marshal_dumper.reader import register_user_defined, load, register_user_class
+from rpgmaker_parser.models import RPGMAKER_USER_DEFINED, RPGMAKER_CLASSES  
 
-from rpgmaker_parser.models import RPGEventCommand, Table, Tone, RPGMAKER_CLASSES
+# monkeypatching наше всё
+for class_name, klass in RPGMAKER_USER_DEFINED.items():
+    reader.register_user_defined_loader(class_name, klass.load)
 
-_ = load
+for class_name, klass in RPGMAKER_CLASSES.items():      
+    reader.register_object_loader(class_name, klass.load) 
 
 
-def read_table(data: bytes):
-    zsize, xsize, ysize, zsize, size = struct.unpack('<5L', data[:20])
-    
-    if zsize * xsize * ysize != size:
-        raise ValueError(f'Unexpected size {zsize * xsize * ysize} != {size}')
-    
-    # не правильный результат т.к. байты идут от младшего к старшему
-    dataview = memoryview(data[20:]).cast("H", (zsize, ysize, xsize))  # type: ignore
-    return Table(dataview.tolist())
-    
-register_user_defined('Table', read_table)
-register_user_defined('Tone', lambda data: Tone(*(struct.unpack('<4d', data))))
-
-for class_name, class_ in RPGMAKER_CLASSES.items():        
-    register_user_class(class_name, class_) 
-
-    
+_ = load  # чтобы ide не удалял импорт
+ 

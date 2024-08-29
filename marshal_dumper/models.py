@@ -68,4 +68,4 @@ class RubySymbol(RubyString):
         return cls.register.items()
 
     
-RubyTypes = RubyObject | str | int | float | list | dict | RubySymbol | re.Pattern | RubyClass | None | bool
+type RubyTypes = RubyObject | str | int | float | list | dict | RubySymbol | re.Pattern | RubyClass | None | bool
