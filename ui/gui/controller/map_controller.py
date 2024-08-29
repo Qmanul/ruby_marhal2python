@@ -61,12 +61,14 @@ class MapController:
                 for event in events:
                     if self.cancel:
                         self.cancel = False
+                        self.view.clear() 
                         break
                     self.view.add_event(event)
                     self.view.update()
                 self.view.hide_progress()
                 
             case {'clear': None}:
-                self.view.clear()
                 if self.cancel and not self.view.in_progress():
                     self.cancel = False
+                    self.view.clear()
+                    

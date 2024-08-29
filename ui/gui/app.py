@@ -12,6 +12,7 @@ class App:
         self.controller = Controller(Root(), Model())
         self.controller.register_view('file_select', FileSelectView, FileSelectController, home=True)
         self.controller.register_view('map', MapView, MapController)
+        self.start()
 
     def start(self):
         self.controller.start()
