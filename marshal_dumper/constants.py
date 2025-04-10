@@ -31,3 +31,4 @@ class Types(Enum):
     USERCLASS = b'C'
     USERDEFINED = b'u'
     USERMARSHAL = b'U'
+

@@ -9,7 +9,9 @@ from .exception import VersionError, TypeNotSupportedError
 from .constants import Types, MARSHAL_MAJOR_VERSION, MARSHAL_MINOR_VERSION
 from .utils import Registry, register_object
 
+
 __all__ = 'load', 'load_from_file', 'register_user_defined_loader', 'register_object_loader',
+
 
 
 class _Reader:
@@ -29,7 +31,6 @@ class _Reader:
         if major_version != MARSHAL_MAJOR_VERSION or minor_version > MARSHAL_MINOR_VERSION:
             raise VersionError(f'{MARSHAL_MAJOR_VERSION}.{MARSHAL_MINOR_VERSION}',
                                f'{major_version}.{minor_version}')
-        return None
     
     # метод шобы не писать self._stream.read(ln)
     def read_bytes(self, ln: int = 1) -> bytes:
@@ -45,16 +46,16 @@ class _Reader:
 
     def read_fixnum(self) -> int:
         ln = ord(self.read_bytes())
-        if 6 <= ln <= 127:
+        if ln in range(6, 128):
             return ln - 5
-        if 128 <= ln <= 250:
+        elif ln in range(128, 251):
             return ln - 251  # ???? кто это нахуй придумал???? почему 251???? а блять потому что 256 - 5 ну ахуеть
 
         const = 0 if ln <= 4 else 256  # понятия не имею как назвать переменную пусть буит const
         return sum((ord(self.read_bytes()) - const) * 256 ** exp for exp in range(abs(const - ln)))
 
     def read_object_ref(self) -> RubyTypes:
-        return self.objects[self.read_fixnum() - 1]  # почему индекс объектов начинается с 1, тогда как символов с 0 ???
+        return self.objects.get(self.read_fixnum() - 1)  # почему индекс объектов начинается с 1, тогда как символов с 0 ???
 
     @register_object
     def read_regexp(self) -> re.Pattern:
@@ -70,7 +71,6 @@ class _Reader:
     # ну и залупа кто это придумал
     @register_object
     def read_ivar(self) -> RubyTypes | NoReturn:
-        
         type_byte = Types(self.read_bytes())
         if type_byte is Types.STRING:
             s = self.read_bytes(self.read_fixnum())
@@ -92,10 +92,12 @@ class _Reader:
         encoding = attrs.get('E', attrs.get('encoding'))
         if encoding is True:
             encoding = 'UTF-8'
-        if encoding is False:
+        elif encoding is False:
             encoding = 'US-ASCII'
+
         try:
             res = s.decode(encoding)
+
         except UnicodeDecodeError as e:
             print(f'Something went wrong while decoding a string: {e.reason}\nDefaulting to UTF-8')
             res = s.decode('UTF-8')
@@ -105,7 +107,7 @@ class _Reader:
         return res
 
     def read_extended(self):
-        self.read_symbol()  # нам особо нет дела до имени модуля
+        self.read_symbol()  # нам нет дела до имени модуля
         return self.parse()
 
     @register_object
@@ -116,12 +118,14 @@ class _Reader:
     def read_bignum(self) -> int:
         sign = self.read_bytes().decode()  # '+' | '-'
         data = self.read_bytes(self.read_fixnum() * 2)  # зачем надо было делить длину на 2 :FaunaTired:
+
         # https://ruby-doc.org/3.2.2/marshal_rdoc.html#label-Bignum
         res = 0
         for exp, byte in enumerate(data):
             res |= byte << (exp * 8)  # спасибо tabnine
+
         if sign == '-':
-            res = -res
+            res *= -1
         return res
 
     @register_object
@@ -168,7 +172,6 @@ class _Reader:
     def read_user_defined(self) -> RubyObject:
         name = self.read_symbol_name()
         data = self.read_bytes(self.read_fixnum())
-        
         if (handler := self.user_defined_loaders.get(name)) is not None:
             return handler(data)
         return RubyObject(cls_name=name, attributes={"data": data})
@@ -188,62 +191,8 @@ class _Reader:
         else:
             return self.read_symbol_ref().name
     
-    # выглядит пиздец колхозно но вроде самый быстрый способ
-    # вообще можно было бы сделать модели всех объектов руби у них прописать методы
-    # dump и load и потом просто вызывать их у type_byte 
-    # но была бы бабка дедом да яйца по резьбе не подошли 
     def parse(self) -> RubyTypes:
-        type_byte = Types(self.read_bytes())
-        if type_byte is Types.TRUE:
-            return True
-        if type_byte is Types.FALSE:
-            return False
-        if type_byte is Types.NIL:
-            return None
-        if type_byte is Types.FIXNUM:
-            return self.read_fixnum()
-        if type_byte is Types.SYMBOL:
-            return self.read_symbol()
-        if type_byte is Types.SYMBOLREF:
-            return self.read_symbol_ref()
-        if type_byte is Types.OBJECTREF:
-            return self.read_object_ref()
-        if type_byte is Types.IVAR:
-            return self.read_ivar()
-        if type_byte is Types.EXTENDED:
-            return self.read_extended()
-        if type_byte is Types.ARRAY:
-            return self.read_array()
-        if type_byte is Types.BIGNUM:
-            return self.read_bignum()
-        if type_byte is Types.CLASS:
-            return self.read_class()
-        if type_byte is Types.MODULE:
-            return self.read_class()
-        if type_byte is Types.MORC:
-            return self.read_class()  # обратная совместимость
-        if type_byte is Types.DATA:
-            return self.read_data()
-        if type_byte is Types.FLOAT:
-            return self.read_float()
-        if type_byte is Types.HASH:
-            return self.read_hash()
-        if type_byte is Types.DEFAULTHASH:
-            return self.read_hash_w_default_value()
-        if type_byte is Types.OBJECT:
-            return self.read_object()
-        if type_byte is Types.REGEXP:
-            return self.read_regexp()
-        if type_byte is Types.STRING:
-            return self.read_string()
-        if type_byte is Types.STRUCT:
-            return self.read_struct()
-        if type_byte is Types.USERCLASS:
-            return self.read_user_class()
-        if type_byte is Types.USERDEFINED:
-            return self.read_user_defined()
-        if type_byte is Types.USERMARSHAL:
-            return self.read_user_class()
+        return _type_mapping.get(Types(self.read_bytes()))(self)
     
     @classmethod 
     def add_user_defined_loader(cls, cls_name: str, loader: Callable[[bytes], object]) -> None:
@@ -252,7 +201,35 @@ class _Reader:
     @classmethod
     def add_object_loader(cls, cls_name: str, loader: Callable[[dict[str, object]], object]) -> None:
         cls.object_custom_loaders.update({cls_name: loader})
-            
+
+# боже как плохо НО быстрее на ~10%
+_type_mapping = {
+    Types.TRUE: lambda _: True,
+    Types.FALSE: lambda _ : False,
+    Types.NIL: lambda _: None,
+    Types.FIXNUM: _Reader.read_fixnum,
+    Types.SYMBOL: _Reader.read_symbol,
+    Types.SYMBOLREF: _Reader.read_symbol_ref,
+    Types.OBJECTREF: _Reader.read_object_ref,
+    Types.IVAR: _Reader.read_ivar,
+    Types.EXTENDED: _Reader.read_extended,
+    Types.ARRAY: _Reader.read_array,
+    Types.BIGNUM: _Reader.read_bignum,
+    Types.CLASS: _Reader.read_class,
+    Types.MODULE: _Reader.read_class,
+    Types.MORC: _Reader.read_class,  # обратная совместимость
+    Types.DATA: _Reader.read_data,
+    Types.FLOAT: _Reader.read_float,
+    Types.HASH: _Reader.read_hash,
+    Types.DEFAULTHASH: _Reader.read_hash_w_default_value,
+    Types.OBJECT: _Reader.read_object,
+    Types.REGEXP: _Reader.read_regexp,
+    Types.STRING: _Reader.read_string,
+    Types.STRUCT: _Reader.read_struct,
+    Types.USERCLASS: _Reader.read_user_class,
+    Types.USERDEFINED: _Reader.read_user_defined,
+    Types.USERMARSHAL: _Reader.read_user_class,
+}
 
 def load(stream: BinaryIO) -> RubyTypes:
     return _Reader(stream).parse()

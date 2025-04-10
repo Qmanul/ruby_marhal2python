@@ -1,8 +1,8 @@
-from ui.gui.app import App
+from ui.gui.app import app_start
 
 
 def main() -> None: 
-    App()
+    app_start()
     
     
 if __name__ == '__main__':

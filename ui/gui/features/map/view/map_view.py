@@ -1,14 +1,7 @@
 import typing
-from customtkinter import CTkFrame, CTkScrollableFrame, CTkButton, CTkScrollbar, CTkProgressBar
+from customtkinter import CTkFrame, CTkScrollableFrame, CTkButton, CTkProgressBar
 
-from ui.gui.utils.ctk_both_way_scrollable_frame import CTkBothWayScrollableFrame
-
-
-class Event(typing.Protocol):
-    id: int
-    name: str
-    x: int
-    y: int
+from ui.gui.widgets.ctk_both_way_scrollable_frame import CTkBothWayScrollableFrame
     
 
 class MapView(CTkFrame):
@@ -68,28 +61,3 @@ class MapView(CTkFrame):
         self.progress.grid(row=0, column=0, sticky="ew", pady=(10, 10), padx=(10, 10))
         self.progress.start()
     
-    def clear(self):
-        for c in tuple(self.events_frame.children.values()):
-            c.destroy()
-  
-    def add_event(self, event: Event):
-        button = CTkButton(master=self.events_frame, text=event.name)
-        button.grid(column=0, padx=10, pady=(0, 20))
-        map_button = CTkButton(master=self.map_events_frame, text=event.id, width=10, height=10)
-        map_button.grid(row=event.y, column=event.x, padx=2, pady=2)
-        
-    def back_button_set_callback(self, callback: typing.Callable[[], None]) -> None:
-        self.back_button.configure(command=callback)
-        
-    def show_progress(self) -> None:
-        self.progress_frame.grid()
-        self.main_frame.grid_remove()
-        
-    def hide_progress(self) -> None:
-        self.progress_frame.grid_remove()
-        self.main_frame.grid()
-    
-    def in_progress(self) -> bool:
-        return bool(self.progress_frame.grid_info())
-    
-        

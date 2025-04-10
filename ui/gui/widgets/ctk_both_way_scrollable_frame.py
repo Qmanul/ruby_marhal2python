@@ -1,5 +1,4 @@
 from typing import Union, Tuple, Optional, Any
-from typing import Literal
 import tkinter
 import sys
 

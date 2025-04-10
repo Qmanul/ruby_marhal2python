@@ -1,0 +1,2 @@
+class ErrorModel:
+    pass
